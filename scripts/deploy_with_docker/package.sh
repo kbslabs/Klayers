@@ -83,9 +83,9 @@ else
 fi
 
 # I'm using a different AWS_PROFILE to upload my layers
-export AWS_PROFILE=LayerUploader
+# export AWS_PROFILE=LayerUploader
 
-LAYER_PREFIX=Klayers-
+LAYER_PREFIX=kbs-Klayers-
 LAYER_RUNTIME_NODOT="${LAYER_RUNTIME//.}"  # removes . between 3.7
 ZIP_NAME=$LAYER_PREFIX$LAYER_RUNTIME_NODOT-$PACKAGE.zip
 LAYER_NAME=$LAYER_PREFIX$LAYER_RUNTIME_NODOT-$PACKAGE
@@ -181,7 +181,7 @@ do
 		--layer-name $LAYER_NAME \
 		--zip-file fileb://$ZIP_NAME \
 		--description "$LAYER_DESC |$REQTXT_SHA256" \
-		--compatible-runtimes $LAYER_RUNTIME \
+		--compatible-runtimes python3.6 python3.7 python3.8 \
 		--license-info $LAYER_LICENSE | jq '.' 2>&1 | tee -a "$LOG_FILE"
 
 		if [ -z $PUBLIC ]
@@ -218,5 +218,5 @@ do
 done
 
 # Remove left-over files
-rm $ZIP_NAME
-rm requirements.txt
+# rm $ZIP_NAME
+# rm requirements.txt
