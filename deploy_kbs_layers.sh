@@ -12,7 +12,7 @@ aws lambda list-layer-versions --layer-name kbs-Klayers-python38-aws-psycopg2 --
 $ROOT_DIR/scripts/deploy_with_docker/package.sh -p numpy        -l "https://www.numpy.org/license.html" -r python3.8 -a us-west-2
 aws lambda list-layer-versions --layer-name kbs-Klayers-python38-numpy --query LayerVersions[].[LayerVersionArn] --output text
 
-$ROOT_DIR/scripts/deploy_with_docker/package.sh -p pandas       -l BSD                                  -r python3.8 -a us-west-2
+$ROOT_DIR/scripts/deploy_with_docker/package.sh -p pandas       -l BSD                                  -r python3.8 -a us-west-2 -v 1.3.5
 aws lambda list-layer-versions --layer-name kbs-Klayers-python38-pandas --query LayerVersions[].[LayerVersionArn] --output text
 
 # schooner

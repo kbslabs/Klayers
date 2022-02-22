@@ -31,9 +31,10 @@
 
 LOG_FILE="$(date '+%d-%m-%y')_log.txt"
 
-while getopts ":p:r:l:a:x:b:" arg; do
+while getopts ":p:v:r:l:a:x:b:" arg; do
   case $arg in
     p) PACKAGE=$OPTARG;;  # Name of the python package to install
+    v) PACKAGE_VERSION=$OPTARG;; # Version of the python package to install
     r) LAYER_RUNTIME=$OPTARG;;  # Runtime version e.g. python3.7
     l) LAYER_LICENSE=$OPTARG;;  # License of package in SPIX 
     a) AWS_REGION=$OPTARG;;
@@ -50,7 +51,15 @@ then
 	echo "All variables -p <package_name> -r <runtime> -l <license> must be provided"
 	exit 1
 else 
+	if [ -z "$PACKAGE_VERSION" ]
+	then
+		PACKAGE_SPEC="$PACKAGE"
+	else
+		PACKAGE_SPEC="$PACKAGE"=="$PACKAGE_VERSION"
+	fi
+
 	printf "Layer Package : $PACKAGE\n" 2>&1 | tee -a "$LOG_FILE"
+	printf "Layer Full Package Spec: $PACKAGE_SPEC\n" 2>&1 | tee -a "$LOG_FILE"
 	printf "Layer Runtime : $LAYER_RUNTIME\n" 2>&1 | tee -a "$LOG_FILE"
 	printf "Layer License : $LAYER_LICENSE\n" 2>&1 | tee -a "$LOG_FILE"
 
@@ -105,7 +114,7 @@ $LAYER_RUNTIME -m venv venv/
 source venv/bin/activate
 printf "Pip-Installing $PACKAGE into virtualenv\n"
 pip install --upgrade pip >> "$LOG_FILE"
-pip install -q $PACKAGE >> "$LOG_FILE"
+pip install -q $PACKAGE_SPEC >> "$LOG_FILE"
 pip freeze > requirements.txt
 deactivate
 rm -rf venv/ # don't need the virtualenv anymore
