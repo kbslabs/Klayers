@@ -22,3 +22,6 @@ aws lambda list-layer-versions --layer-name kbs-Klayers-python37-openpyxl --quer
 # etls
 $ROOT_DIR/scripts/deploy_with_docker/package.sh -p pymongo      -l Apache-2.0                           -r python3.7 -a us-west-2
 aws lambda list-layer-versions --layer-name kbs-Klayers-python37-pymongo --query LayerVersions[].[LayerVersionArn] --output text
+
+$ROOT_DIR/scripts/deploy_with_docker/package.sh -p pymysql      -l MIT                                  -r python3.7 -a us-west-2
+aws lambda list-layer-versions --layer-name kbs-Klayers-python37-pymysql --query LayerVersions[].[LayerVersionArn] --output text
