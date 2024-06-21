@@ -1,4 +1,4 @@
-FROM amazonlinux:latest
+FROM amazonlinux:2023.4.20240611.0
 
 LABEL maintainer="keith@keithrozario.com"
 
