@@ -1,4 +1,9 @@
+################################################################################################################
+# This build.py is for python3.8 only. For later versions refer to build.py in the container_images directory  #
+################################################################################################################
+
 import os
+import sys
 import shutil
 import hashlib
 from datetime import datetime
@@ -10,15 +15,27 @@ from aws_lambda_powertools.logging import Logger
 
 logger = Logger()
 
-build_v0 = "bldVrsn0#"
-build_version_prefix = "bld#v"
-package_prefix = "pckg#"
+
+def get_pk_sk_latest_build(package: str, python_version: str):
+    build_v0_prefix = "bldVrsn0#"
+    package_prefix = "pckg#"
+    sk = {"S": f"{package_prefix}{package}"}
+    pk = {"S": f"{build_v0_prefix}{python_version}"}
+
+    return pk, sk
 
 
-def put_requirements_hash(package, version, requirements_txt, requirements_hash):
+def put_requirements_hash(
+    python_version: str,
+    package: str,
+    version: str,
+    requirements_txt: str,
+    requirements_hash: str,
+):
     """
     Args:
       package: Package name
+      python_version: Version of python "p<major>.<minor>" (e.g. p3.8, p3.9, p3.10)
       version: Package version
       requirements_hash: SHA256 hash of the requirements.txt file
       requirements_txt: requirements txt of the entire build
@@ -28,32 +45,33 @@ def put_requirements_hash(package, version, requirements_txt, requirements_hash)
     client = boto3.client("dynamodb")
     table_name = os.environ["DB_NAME"]
 
-    sk = f"{package_prefix}{package}"
+    pk, sk = get_pk_sk_latest_build(package, python_version)
+
     # Get latest build version for package
+    build_version_prefix = "bld#v"
     response = client.get_item(
         TableName=table_name,
-        Key={"pk": {"S": build_v0}, "sk": {"S": sk}},
+        Key={"pk": pk, "sk": sk},
         ProjectionExpression="bltVrsn",
     )
     try:
-        latest_version = response["Item"]["bltVrsn"]["S"]
-        new_version = (
-            f"{build_version_prefix}{int(latest_version[len(build_version_prefix):])+1}"
-        )
+        latest_version = int(response["Item"]["bltVrsn"]["N"])
+        new_version = latest_version + 1
     except KeyError:
         # Version wasn't deployed before, start with v1
-        new_version = f"{build_version_prefix}1"
+        new_version = 1
 
     created_date = datetime.utcnow().isoformat()
     Item = {
-        "pk": {"S": new_version},
-        "sk": {"S": sk},
+        "pk": {"S": f"{build_version_prefix}{new_version}:{python_version}"},
+        "sk": sk,
         "pckgVrsn": {"S": str(version)},
         "rqrmntsTxt": {"S": requirements_txt},
         "rqrmntsHsh": {"S": requirements_hash},
-        "bltVrsn": {"S": new_version},
+        "bltVrsn": {"N": str(new_version)},
         "crtdDt": {"S": created_date},
         "pckg": {"S": package},
+        "pyVrsn": {"S": python_version},
     }
 
     # Insert new record
@@ -63,24 +81,34 @@ def put_requirements_hash(package, version, requirements_txt, requirements_hash)
                 {
                     "Update": {
                         "TableName": table_name,
-                        "Key": {"pk": {"S": build_v0}, "sk": {"S": sk},},
+                        "Key": {
+                            "pk": pk,
+                            "sk": sk,
+                        },
                         "UpdateExpression": "set "
                         "rqrmntsTxt = :rqrmntsTxt, "
                         "pckgVrsn = :pckgVrsn, "
                         "rqrmntsHsh = :rqrmntsHsh,"
                         "bltVrsn = :bltVrsn,"
-                        "crtdDt = :crtdDt",
+                        "crtdDt = :crtdDt,"
+                        "pyVrsn = :pyVrsn",
                         "ExpressionAttributeValues": {
                             ":rqrmntsTxt": {"S": requirements_txt},
                             ":pckgVrsn": {"S": str(version)},
                             ":rqrmntsHsh": {"S": requirements_hash},
-                            ":bltVrsn": {"S": new_version},
+                            ":bltVrsn": {"N": str(new_version)},
                             ":crtdDt": {"S": created_date},
+                            ":pyVrsn": {"S": python_version},
                         },
                         "ConditionExpression": "bltVrsn <> :bltVrsn",
                     }
                 },
-                {"Put": {"TableName": table_name, "Item": Item,}},
+                {
+                    "Put": {
+                        "TableName": table_name,
+                        "Item": Item,
+                    }
+                },
             ]
         )
         logger.info({"message": "Successfully written", "item": Item})
@@ -96,12 +124,13 @@ def put_requirements_hash(package, version, requirements_txt, requirements_hash)
         )
         exit(1)
 
-    return
+    return None
 
 
-def check_requirement_hash(package, requirements_hash):
+def check_requirement_hash(package: str, python_version: str, requirements_hash):
     """
     Args:
+      python_version: Version of python (e.g. p3.8, p3.9, p3.10)
       package: Package name
       requirements_hash: SHA256 hash of the requirements.txt file
     returns:
@@ -110,22 +139,22 @@ def check_requirement_hash(package, requirements_hash):
 
     client = boto3.client("dynamodb")
     table_name = os.environ["DB_NAME"]
-    sk = f"{package_prefix}{package}"
+    pk, sk = get_pk_sk_latest_build(package, python_version)
 
     response = client.get_item(
         TableName=table_name,
-        Key={"pk": {"S": build_v0}, "sk": {"S": sk}},
+        Key={"pk": pk, "sk": sk},
         ProjectionExpression="rqrmntsHsh",
     )
 
     if requirements_hash == response.get("Item", {}).get("rqrmntsHsh", {}).get(
         "S", False
     ):
-        hash_found = True
+        hash_match = True
     else:
-        hash_found = False
+        hash_match = False
 
-    return hash_found
+    return hash_match
 
 
 def freeze_requirements(package, path):
@@ -175,8 +204,8 @@ def upload_to_s3(zip_file, package, uploaded_file_name):
     s3.meta.client.upload_file(zip_file, bucket_name, uploaded_file_name)
 
     client = boto3.client("s3")
-    response = client.list_objects_v2(Bucket=bucket_name, Prefix=package)
-
+    response = client.list_objects_v2(Bucket=bucket_name, Prefix=uploaded_file_name)
+    logger.info(response)
     logger.info(
         {
             "message": f"Uploaded {package}.zip",
@@ -212,16 +241,19 @@ def delete_dir(dir):
 
 def dir_size(path="."):
     total = 0
-    for entry in os.scandir(path):
-        if entry.is_file():
-            total += entry.stat().st_size
-        elif entry.is_dir():
-            total += dir_size(entry.path)
+    try:
+        for entry in os.scandir(path):
+            if entry.is_file():
+                total += entry.stat().st_size
+            elif entry.is_dir():
+                total += dir_size(entry.path)
+    except FileNotFoundError:
+        total = 0
     return total
 
 
 def install(package, package_dir):
-    """"
+    """ "
     Args:
       package: Name of package to be queried
     return:
@@ -249,14 +281,38 @@ def install(package, package_dir):
     return package_dir
 
 
+def check_python_version(python_version: str) -> bool:
+    """ "
+    Args:
+      python_version: Version of python required in form of major.minor
+    return:
+      True if matches running version, False otherwise
+    """
+    running_python_version = f"p{sys.version_info.major}.{sys.version_info.minor}"
+    if python_version == running_python_version:
+        logger.debug(f"Python version supplied: {python_version}")
+        logger.debug(f"Python version running: {sys.version_info}")
+        return True
+    else:
+        logger.error("Python version doesn't match")
+        logger.error(f"Python version supplied: {python_version}")
+        logger.error(f"Python version running: {running_python_version}")
+        return False
+
+
 @logger.inject_lambda_context
 def main(event, context):
-
     package = event["package"]
     license_info = event["license_info"]
+    python_version = event["python_version"]
+    force_build = event["force_build"]
+    force_deploy = event["force_deploy"]
+
+    if not check_python_version(python_version):
+        sys.exit(1)
 
     package_dir = f"/tmp/python"
-    uploaded_file_name = f"{package}.zip"
+    uploaded_file_name = f"{python_version}/{package}.zip"
     build_flag = False
 
     package_dir = install(package, package_dir=package_dir)
@@ -272,12 +328,17 @@ def main(event, context):
         requirements_file.write(requirements_txt)
     zip_file = zip_dir(dir_path=package_dir, package=package)
 
-    if not check_requirement_hash(package=package, requirements_hash=requirements_hash):
+    if force_build or not check_requirement_hash(
+        package=package,
+        requirements_hash=requirements_hash,
+        python_version=python_version,
+    ):
         logger.info(
             {
                 "requirements_hash": requirements_hash,
                 "package": package,
                 "version": version,
+                "python_version": python_version,
                 "message": "Uploading to S3",
             }
         )
@@ -290,6 +351,7 @@ def main(event, context):
             requirements_txt=requirements_txt,
             requirements_hash=requirements_hash,
             version=version,
+            python_version=python_version,
         )
 
         logger.info(
@@ -310,10 +372,12 @@ def main(event, context):
         )
 
     return {
-        "zip_file": uploaded_file_name,
+        "zip_file_S3key": uploaded_file_name,
         "package": package,
         "version": version,
         "requirements_hash": requirements_hash,
         "license_info": license_info,
         "build_flag": build_flag,
+        "force_deploy": force_deploy,
+        "python_version": python_version,
     }

@@ -9,63 +9,57 @@ AWS_PROFILE=<your profile> ./deploy_kbs_layers.sh
 
 🐍 A collection of Python Packages as AWS Lambda(λ) Layers 🐍
 
-[![Python 3.8](https://img.shields.io/badge/python-3.8-green.svg)](https://www.python.org/downloads/release/python-380/) [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/keithrozario/Klayers.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/keithrozario/Klayers/context:python) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) 
+[![Python 3.10](https://img.shields.io/badge/python-3.10-green?style=for-the-badge)](https://www.python.org/downloads/release/python-3100/)  [![Python 3.11](https://img.shields.io/badge/python-3.11-green?style=for-the-badge)](https://www.python.org/downloads/release/python-3110/)  [![Python 3.12](https://img.shields.io/badge/python-3.12-green?style=for-the-badge)](https://www.python.org/downloads/release/python-3120/)  [![Code style: black](https://img.shields.io/badge/code%20style-black-000000?style=for-the-badge)](https://github.com/psf/black)
 
-## Layer List
+  -   [List of ARNs](#list-of-arns)
+  -   [Python Packages](#python-packages)
+  -   [Using the Layers](#using-the-layers)
+      -   [Option 1: Using the Console](#option-1-using-the-console)
+      -   [Option 2: Download copy of layer](#option-2-download-copy-of-layer)
+      -   [Option 3: Using Serverless Framework](#option-3-using-serverless-framework)
+      -   [Option 4: Using AWS Serverless Application Model (SAM)](#option-4-using-aws-serverless-application-model-sam)
+      -   [Option 5: Using Terraform with the Klayer provider](#option-5-using-terraform-with-the-klayer-provider)
+      -   [Option 6: Using CDK with cdk-klayers](#option-6-using-cdk-with-cdk-klayers)
+  -   [Status of layers](#status-of-layers)
+  -   [Layer expiry](#layer-expiry)
+  -   [Architecture Diagram](#architecture-diagram)
+  -   [API](#api)
+      -   [Get latest ARN for all packages in region](#get-latest-arn-for-all-packages-in-region)
+      -   [Get all ARNs for specific package in region](#get-all-arns-for-specific-package-in-region)
+  -   [Special Thanks](#special-thanks)
+  -   [Asking for additional layers](#asking-for-additional-layers)
 
-List of all layer version arns are available by region [here](deployments/python3.8/arns)
+## List of ARNs
 
-There might be multiple versions for a single package, as we publish a new layer version if the package dependencies (`requirements.txt`) has been updated. Refer to [Layer expiry](#Layer-expiry) for more data.
+List of the latest layer version arns are available by region:
 
-*Note: We have deprecated layers for python3.6 and python 3.7, please use these newer versions that are built for python 3.8 going forward.*
+* [Python 3.10](deployments/python3.10)
+* [Python 3.11](deployments/python3.11)
+* [Python 3.12](deployments/python3.12)
+* [Python 3.10-arm64](deployments/python3.10-arm64)
+* [Python 3.11-arm64](deployments/python3.11-arm64)
+* [Python 3.12-arm64](deployments/python3.12-arm64)
+
+*Note: We have deprecated layers for python3.6, python3.7, python 3.8 and python3.9, Please use the latest version of python (currently python3.12) going forward*
 
 ## Python Packages
 
-Just some examples of the ~70 packages we build every week, for a full list click [here](pipeline/config/Klayers-prodp38/packages.csv):
+For the full list of Python packages, refer to the following, feel free to make a `pull requests` modifying the files below to requests for a specific package.
 
-* aws-lambda-powertools
-* aws-xray-sdk
-* bcrypt
-* beautifulsoup4
-* boto3
-* dynamodb-encryption-sdk
-* idna
-* lambda-cache
-* nltk
-* numpy
-* opencv-python-headless
-* openpyxl
-* pandas
-* parliament
-* Pillow
-* pulp
-* pycryptodome
-* PyJWT
-* PyMUPDF
-* pyqldb
-* pytesseract
-* pytz
-* PyYAML
-* requests
-* slackclient
-* spacy
-* ...
-
-## Status of layers
-
-Click [here](https://pyup.io/repos/github/keithrozario/Klayers/) to see specific dependencies of all the latest builds. Layers are built with the latest package version at 2am UTC every Sunday.
+* [Python 3.10](pipeline/config/packages_p310.csv)
+* [Python 3.11](pipeline/config/packages_p311.csv)
+* [Python 3.12](pipeline/config/packages_p312.csv)
+* [Python 3.10-arm64](pipeline/config/packages_p310-arm64.csv)
+* [Python 3.11-arm64](pipeline/config/packages_p311-arm64.csv)
+* [Python 3.12-arm64](pipeline/config/packages_p312-arm64.csv)
 
 ## Using the Layers
 
-You can use the layers anyway you see fit, here are 3 proposed options:
+You can use the layers anyway you see fit, and here are 6 options based on what method you use to deploy your lambda functions:
 
-### Option 1: Set ARN as layer
+### Option 1: Using the Console
 
-Click links below for your preferred version of python, and then select your region of choice, you will see a full list of layer version ARNs to use.
-
-* [Arns](deployments/python3.8/arns)
-
-Once selected, you can add the arn directly from the console, by selecting Layers->Add a Layer->Specify an Arn:
+Add the arn directly from the console, by selecting Layers->Add a Layer->Specify an Arn:
 
 ![Screenshot](documentation/add_arn.png)
 
@@ -83,7 +77,7 @@ You can include layers in your deployments, by utilizing the `layers` property a
 check:
   handler: 02_pipeline/check.main
   description: Checks for package on PyPi via the API
-  runtime: python3.8
+  runtime: python3.9
   timeout: 30
   memorySize: 256
   layers:
@@ -91,76 +85,153 @@ check:
   - arn:aws:lambda:${self:provider.region}:113088814899:layer:Klayers-python38-aws-lambda-powertools:23
 ```
 
+### Option 4: Using AWS Serverless Application Model (SAM)
+
+Using AWS SAM, you can include layers in your serverless applications.You must use layers from the same region as your function:
+
+```yaml
+ServerlessFunction:
+  Type: AWS::Serverless::Function
+  Properties:
+    CodeUri: .
+    Handler: my_handler
+    Runtime: Python3.9
+    Layers:
+        - arn:aws:lambda:ap-southeast-1:113088814899:layer:Klayers-p39-packaging:1
+```
+
+### Option 5: Using Terraform with the Klayer provider
+
+Using Terraform, you can use the [terraform-provider-klayer](https://github.com/ldcorentin/terraform-provider-klayer). The provider uses the API to enable your functions to always reference the latest layer versions.
+
+```terraform
+terraform {
+  required_providers {
+    klayers = {
+      version = "~> 1.0.0"
+      source  = "ldcorentin/klayer"
+    }
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 3.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "us-east-1"
+}
+
+data "klayers_package_latest_version" "pandas" {
+  name   = "pandas"
+  region = "us-east-1"
+}
+
+resource "aws_lambda_function" "test_lambda" {
+  filename      = "index.zip"
+  function_name = "klayers-test"
+  role          = aws_iam_role.iam_for_lambda.arn
+  handler       = "index.handler"
+  runtime       = "python3.9"
+  layers = [
+    data.klayers_package_latest_version.pandas.arn
+  ]
+}
+```
+
+### Option 6: Using CDK with cdk-klayers
+
+Using CDK, you can use the [cdk-klayers](https://github.com/keithrozario/cdk-klayers) package to help you pull in the latest layers for your Stack or App.
+
+```python
+
+from cdk_klayers import Klayers
+
+class MockStack(Stack):
+
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        runtime = aws_lambda.Runtime.PYTHON_3_12
+
+        # Initialize Klayers Class
+        klayers = Klayers(
+            self,
+            python_version = runtime,
+            region = "ap-southeast-1"
+        )
+    
+        # get the latest layer version for the requests package
+        requests_layer = klayers.layer_version(self, "requests")
+
+        lambda_function = aws_lambda.Function(
+            self, 'HelloHandler',
+            runtime=runtime,
+            layers=[requests_layer],
+            code=aws_lambda.Code.from_asset('lambda'),
+            handler='hello.handler'
+        )
+
+```
+
+
+## Status of layers
+
+Layers are built with the latest package version at 2am UTC on the first day of the Month.
+
+If there's a critical issue with a package, which needs a new version of it published, raise an issue for the package, and I'll try my best to perform the deploy.
+
 ## Layer expiry
 
 Some layer versions will have a `expiry_date` field. This is the date for when the layers will be deleted.
 
-In general, layers are scheduled for deletion 60 days after a new layer version has been published for that package. If you use that latest version of a layer, you're guaranteed at least 60 days before the layer is deleted.
+In general, layers are scheduled for deletion 365 days after a new layer version has been published for that package. If you use that latest version of a layer, you're guaranteed at **least** 365 days before the layer is deleted.
 
 All functions deployed with a layer will still work indefinitely, but you won't be able to deploy new functions referencing a deleted layer version.
-
-## Binaries
-
-Special hand-crafted binaries for layers. These layers are not automatically built, and hence slower update cycles, and will only work with python3.7 functions as the underlying OS is Amazon Linux 1.
-
-| Package        | ARN                                                                             | Version    |
-| :------------- |:------------------------------------------------------------------------------- | ---------- |
-| pip            | arn:aws:lambda:\<*region*>:113088814899:layer:Klayers-python37-pip:2            | 19.2.1 <sup>1</sup>|     |
-| en_core_web_sm | arn:aws:lambda:\<*region*>:770693421928:layer:Klayers-python38-spacy_model_en_small:1 | 2.2.5 <sup>2</sup>|
-| es_core_news_sm | arn:aws:lambda:\<*region*>:770693421928:layer:Klayers-python38-spacy_model_es_small:1 | 2.3.1 <sup>2</sup>|
-
-<sup>1</sup> Python3.8 layers already have new version of pip, use only if on Python3.7
-
-<sup>2</sup> Spacy [en_core_web_sm](https://spacy.io/models/en) model, for use with the spacy layer refer [here](https://github.com/keithrozario/Klayers/issues/97) for more info.
-
 
 ## Architecture Diagram
 
 ![Screenshot](documentation/Klayers-Architecture.png)
 
-## API (beta)
+## API
 
-We've recently added an API under beta. All API calls are http-based, and work only with https (TLS1.2 and above). The API is heavily cached, so there could be minor delays in updates.
+API v1 has been deprecated. Please use API v2 instead.
 
-### Get latest ARN for specific package in region
+All API calls are http-based, and work only with https (TLS1.2 and above). The API is heavily cached, so there could be minor delays in updates.
 
-Returns data on the latest layer for a specific *{package}* in a specific *{region}*
+### Get latest ARN for all packages in region
 
-*https://api.klayers.cloud/api/v1/layers/latest/{region}/{package}*
+Returns data on the latest layer for a all packages in a specific *{region}* for your *{python_version}*. Defaults to json, but both csv and html can be returned as well.
+
+*https://api.klayers.cloud/api/v2/{python_version}/layers/latest/{region}/{format}*
 
 example:
 
-  * https://api.klayers.cloud/api/v1/layers/latest/us-east-1/requests
-  * https://api.klayers.cloud/api/v1/layers/latest/ap-southeast-1/boto3
-
+* [https://api.klayers.cloud/api/v2/p3.9/layers/latest/us-east-1/](https://api.klayers.cloud/api/v2/p3.9/layers/latest/us-east-1/)
+* [https://api.klayers.cloud/api/v2/p3.8/layers/latest/ap-southeast-1/](https://api.klayers.cloud/api/v2/p3.9/layers/latest/ap-southeast-1/)
+* [https://api.klayers.cloud/api/v2/p3.10/layers/latest/ap-southeast-1/csv](https://api.klayers.cloud/api/v2/p3.10/layers/latest/ap-southeast-1/csv)
+* [https://api.klayers.cloud/api/v2/p3.10-arm64/layers/latest/ap-southeast-1/html](https://api.klayers.cloud/api/v2/p3.10-arm64/layers/latest/ap-southeast-1/html)
 
 ### Get all ARNs for specific package in region
 
-Returns data on the all layers (latest and deprecated) for a specific *{package}* in a specific *{region}*
+Returns data on the all layers (latest and deprecated) for a **specific** *{package}* in a specific *{region}* for your *{python_version}*
 
-*https://api.klayers.cloud/api/v1/layers/{region}/{package}*
-
-
-example:
-
-  * https://api.klayers.cloud/api/v1/layers/us-east-1/requests
-  * https://api.klayers.cloud/api/v1/layers/ap-southeast-1/boto3
-
-### Get list of all built packages
-
-Returns list of all packages currently being built, including dependencies and build date.
-
-*https://api.klayers.cloud/api/v1/builds/latest*
+*https://api.klayers.cloud/api/v2/{python_version}/layers/{region}/{package}*
 
 example:
-  
-  * https://api.klayers.cloud/api/v1/builds/latest
+
+* [https://api.klayers.cloud/api/v2/p3.8/layers/us-east-1/requests](https://api.klayers.cloud/api/v2/p3.8/layers/us-east-1/requests)
+* [https://api.klayers.cloud/api/v2/p3.9/layers/ap-southeast-1/boto3](https://api.klayers.cloud/api/v2/p3.9/layers/ap-southeast-1/boto3)
 
 ## Special Thanks
 
-* [Chahna107](https://github.com/chahna107) for adding tesseract config files into the tesseract layer.
-* [~ Dependencies scanned by PyUp.io ~](https://pyup.io/)
+* [Chahna107](https://github.com/chahna107) 
+* [@ldcorentin](https://github.com/ldcorentin) for making the awesome Terraform klayers-provider
 
 ## Asking for additional layers
 
-If you would like a new package to be made a layer, raise a `pull request` modifying the `pipeline/config/Klayers-prodp38` file. 
+If you would like a new package to be made a layer, raise a `pull request` modifying the `pipeline/config/packages_p310.csv` or `pipeline/config/packages_p310-arm64.csv` file (depending on which architecture you prefer). By default, please request for the latest version of python unless you absolutely need an older version.
+
+## Consider Making a Donation
+
+If you've found Klayers helpful, consider making a small donation [here.](https://www.buymeacoffee.com/keithrozario)

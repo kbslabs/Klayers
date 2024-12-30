@@ -2,7 +2,7 @@ invoke_pipeline:
   handler: 01_invoke_pipelines/invoke_pipelines.main
   description: Invoke multiple pipelines, one for each package
   runtime: python3.8
-  timeout: 120
+  timeout: 900
   memorySize: 256
   environment:
     POWERTOOLS_SERVICE_NAME: Klayers.invoke_pipeline
@@ -19,63 +19,16 @@ invoke_pipeline:
               - Ref: AWS::AccountId
               - event-bus/default
     - Effect: Allow
-      Action: s3:GetObject
-      Resource: ${self:custom.s3LayersArn}/*
-  layers:
-    - arn:aws:lambda:${self:provider.region}:770693421928:layer:Klayers-python38-aws-lambda-powertools:48
-
-download_config:
-  handler: 01_invoke_pipelines/download_config.download_config_from_github
-  description: Updates config before launch by downloading CSV from Github
-  runtime: python3.8
-  memorySize: 256
-  timeout: 60
-  environment:
-    POWERTOOLS_SERVICE_NAME: Klayers.download_config
-  iamRoleStatementsName: ${self:provider.stage}-download_config
-  iamRoleStatements:
-    - Effect: Allow
       Action:
-        - s3:GetObject
-        - s3:PutObject
+      - dynamodb:GetItem
       Resource:
-        - ${self:custom.s3LayersArn}/config/*
-  layers:
-    - arn:aws:lambda:${self:provider.region}:770693421928:layer:Klayers-python38-lambda-cache:1
-    - arn:aws:lambda:${self:provider.region}:770693421928:layer:Klayers-python38-requests:9
-    - arn:aws:lambda:${self:provider.region}:770693421928:layer:Klayers-python38-aws-lambda-powertools:48
-
-invalidate_cache:
-  handler: 01_invoke_pipelines/invalidate_cf_cache.main
-  description: Invalidated CF cache after deployment
-  runtime: python3.8
-  memorySize: 256
-  timeout: 30
-  environment:
-    POWERTOOLS_SERVICE_NAME: Klayers.invalidate_cf_cache
-    # this parameter deployed as part of api Cloudformation
-    DISTRIBUTION_NAME: /${self:service.name}/${self:provider.stage}/api/cfDistribution/id
-  iamRoleStatementsName: ${self:provider.stage}-invalidate_cache
-  iamRoleStatements:
+      - ${self:custom.dbArn}
     - Effect: Allow
-      Action:
-        - ssm:GetParameter
-      Resource:
-      - Fn::Join:
-        - ":"
-        - - arn:aws:ssm
-          - ${self:provider.region}
-          - Ref: AWS::AccountId
-          - parameter/${self:service.name}/${self:provider.stage}/api/cfDistribution/id
-    - Effect: Allow
-      Action: 
-        - cloudfront:CreateInvalidation
-      Resource:
-      - Fn::Join:
-        - ":"
-        - - "arn:aws:cloudfront:"
-          - Ref: AWS::AccountId
-          - distribution/${ssm:/${self:service.name}/${self:provider.stage}/api/cfDistribution/id}
+      Action: execute-api:Invoke
+      Resource: ${ssm:/common-service/${self:provider.stage}/CommonServiceApi/arn}/GET*
   layers:
-    - arn:aws:lambda:${self:provider.region}:770693421928:layer:Klayers-python38-lambda-cache:1
-    - arn:aws:lambda:${self:provider.region}:770693421928:layer:Klayers-python38-aws-lambda-powertools:48
+    - arn:aws:lambda:${self:provider.region}:017000801446:layer:AWSLambdaPowertoolsPython:6
+    - arn:aws:lambda:${self:provider.region}:770693421928:layer:Klayers-p39-aws-requests-auth:11
+  events:
+    - schedule: ${self:custom.cron_expression_invoke_pipelines}  # runs on the first of the month
+    

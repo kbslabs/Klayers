@@ -1,34 +1,166 @@
 name: ${self:custom.pipelineName}
 definition:
   Comment: "Check, Build, and Deploy Lambda Layer"
-  StartAt: Check
+  StartAt: RandomDelay
   States:
+    RandomDelay:
+      Type: Wait
+      SecondsPath: $.detail.secondsDelay
+      Next: Check
     Check:
       Type: Task
       Resource:
         Fn::GetAtt: [CheckLambdaFunction, Arn]
-      Next: Build
+      Next: ChoicePythonVersion
       Retry:
         - ErrorEquals:
           - States.Timeout
-          MaxAttempts: 2
-          BackoffRate: 30
-          IntervalSeconds: 60
+          - Lambda.ClientExecutionTimeoutException
+          - Lambda.ServiceException
+          - Lambda.AWSLambdaException
+          - Lambda.TooManyRequestsException
+          MaxAttempts: 5
+          BackoffRate: 2
+          IntervalSeconds: 15
       Catch:
         - ErrorEquals:
           - States.ALL
           Next: CheckFail
-    Build:
+    ChoicePythonVersion:
+      Type: Choice
+      Choices:
+        - Variable: $.python_version
+          StringEquals: "p3.10"
+          Next: Build310
+        - Variable: $.python_version
+          StringEquals: "p3.11"
+          Next: Build311
+        - Variable: $.python_version
+          StringEquals: "p3.12"
+          Next: Build312
+        - Variable: $.python_version
+          StringEquals: "p3.10-arm64"
+          Next: Build310arm64
+        - Variable: $.python_version
+          StringEquals: "p3.11-arm64"
+          Next: Build311arm64
+        - Variable: $.python_version
+          StringEquals: "p3.12-arm64"
+          Next: Build312arm64
+      Default: UnknownPythonVersion
+    Build310:
       Type: Task
       Resource:
-        Fn::GetAtt: [BuildLambdaFunction, Arn]
+        Fn::GetAtt: [Build310LambdaFunction, Arn]
+      Next: Deploy
+      Retry:
+        - ErrorEquals:
+          - Lambda.AWSLambdaException
+          - States.Timeout
+          - Lambda.ClientExecutionTimeoutException
+          - Lambda.ServiceException
+          - Lambda.AWSLambdaException
+          - Lambda.TooManyRequestsException
+          MaxAttempts: 5
+          BackoffRate: 2
+          IntervalSeconds: 15
+      Catch:
+        - ErrorEquals:
+          - States.ALL
+          Next: BuildFail
+    Build311:
+      Type: Task
+      Resource:
+        Fn::GetAtt: [Build311LambdaFunction, Arn]
+      Next: Deploy
+      Retry:
+        - ErrorEquals:
+          - Lambda.AWSLambdaException
+          - States.Timeout
+          - Lambda.ClientExecutionTimeoutException
+          - Lambda.ServiceException
+          - Lambda.AWSLambdaException
+          - Lambda.TooManyRequestsException
+          MaxAttempts: 5
+          BackoffRate: 2
+          IntervalSeconds: 15
+      Catch:
+        - ErrorEquals:
+          - States.ALL
+          Next: BuildFail
+    Build312:
+      Type: Task
+      Resource:
+        Fn::GetAtt: [Build312LambdaFunction, Arn]
+      Next: Deploy
+      Retry:
+        - ErrorEquals:
+          - Lambda.AWSLambdaException
+          - States.Timeout
+          - Lambda.ClientExecutionTimeoutException
+          - Lambda.ServiceException
+          - Lambda.AWSLambdaException
+          - Lambda.TooManyRequestsException
+          MaxAttempts: 5
+          BackoffRate: 2
+          IntervalSeconds: 15
+      Catch:
+        - ErrorEquals:
+          - States.ALL
+          Next: BuildFail
+    Build310arm64:
+      Type: Task
+      Resource:
+        Fn::GetAtt: [Build310Arm64LambdaFunction, Arn]
       Next: Deploy
       Retry:
         - ErrorEquals:
           - States.Timeout
-          MaxAttempts: 2
-          BackoffRate: 30
-          IntervalSeconds: 60
+          - Lambda.ClientExecutionTimeoutException
+          - Lambda.ServiceException
+          - Lambda.AWSLambdaException
+          - Lambda.TooManyRequestsException
+          MaxAttempts: 5
+          BackoffRate: 2
+          IntervalSeconds: 15
+      Catch:
+        - ErrorEquals:
+          - States.ALL
+          Next: BuildFail
+    Build311arm64:
+      Type: Task
+      Resource:
+        Fn::GetAtt: [Build311Arm64LambdaFunction, Arn]
+      Next: Deploy
+      Retry:
+        - ErrorEquals:
+          - States.Timeout
+          - Lambda.ClientExecutionTimeoutException
+          - Lambda.ServiceException
+          - Lambda.AWSLambdaException
+          - Lambda.TooManyRequestsException
+          MaxAttempts: 5
+          BackoffRate: 2
+          IntervalSeconds: 15
+      Catch:
+        - ErrorEquals:
+          - States.ALL
+          Next: BuildFail
+    Build312arm64:
+      Type: Task
+      Resource:
+        Fn::GetAtt: [Build312Arm64LambdaFunction, Arn]
+      Next: Deploy
+      Retry:
+        - ErrorEquals:
+          - States.Timeout
+          - Lambda.ClientExecutionTimeoutException
+          - Lambda.ServiceException
+          - Lambda.AWSLambdaException
+          - Lambda.TooManyRequestsException
+          MaxAttempts: 5
+          BackoffRate: 2
+          IntervalSeconds: 15
       Catch:
         - ErrorEquals:
           - States.ALL
@@ -41,6 +173,12 @@ definition:
       Retry:
         - ErrorEquals:
           - States.Timeout
+          - Lambda.AWSLambdaException
+          - States.Timeout
+          - Lambda.ClientExecutionTimeoutException
+          - Lambda.ServiceException
+          - Lambda.AWSLambdaException
+          - Lambda.TooManyRequestsException
           MaxAttempts: 2
           BackoffRate: 30
           IntervalSeconds: 60
@@ -62,6 +200,10 @@ definition:
       Type: Fail
       Error: DeployFailure
       Cause: Unknown
+    UnknownPythonVersion:
+      Type: Fail
+      Error: UnknownPythonVersion
+      Cause: UnknownPythonVersion
 notifications:
   ABORTED:
     - lambda:

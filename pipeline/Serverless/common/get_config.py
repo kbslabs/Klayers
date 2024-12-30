@@ -1,46 +1,40 @@
-import tempfile
 import os
-import csv
-import io
+import json
 
-import boto3
+from aws_requests_auth.boto_utils import BotoAWSRequestsAuth
+import requests
 
 
-def get_aws_regions():
+def get_from_common_service(
+    resource: str, method: str = "GET", data: dict = None, headers: dict = None
+):
     """
     Args:
-        os.environ['BUCKET_NAME'] set to Bucket name to grab configuration from
-    returns:
-        aws_regions : List of all regions to deploy lambdas into
+        resource: The resource to get from the common service (e.g. /api/v1/config/python-version). Remember '/' at beginning
+    Return:
+        The json loaded response from the API
     """
+    common_service_url = os.environ["COMMON_SERVICE_URL"]
 
-    s3_client = boto3.client("s3")
-    bucket_name = os.environ["BUCKET_NAME"]
+    auth = BotoAWSRequestsAuth(
+        aws_host=common_service_url.split("/")[2],
+        aws_region=os.environ["AWS_REGION"],
+        aws_service="execute-api",
+    )
+    request_url = f"{common_service_url}{resource}"
 
-    with tempfile.TemporaryFile() as region_file:
-        s3_client.download_fileobj(bucket_name, "config/regions.csv", region_file)
-        region_file.seek(0)
-        file_as_string = region_file.read().decode("utf-8")
-        csv_reader = csv.DictReader(io.StringIO(file_as_string))
-        aws_regions = [line["Code"] for line in csv_reader]
+    if method == "GET":
+        response = requests.get(request_url, auth=auth)
+    elif method == "POST":
+        response = requests.post(request_url, auth=auth, json=data, headers=headers)
+    else:
+        raise Exception(f"Method '{method}' not supported")
 
-    return aws_regions
+    if response.status_code != 200:
+        raise Exception(
+            f"Error {response.status_code} from common service: {response.content}"
+        )
+    else:
+        result = json.loads(response.content)
 
-
-def get_packages():
-    """
-    returns:
-        packages: list of all packages to be built
-    """
-
-    s3_client = boto3.client("s3")
-    bucket_name = os.environ["BUCKET_NAME"]
-
-    with tempfile.TemporaryFile() as package_file:
-        s3_client.download_fileobj(bucket_name, "config/packages.csv", package_file)
-        package_file.seek(0)
-        file_as_string = package_file.read().decode("utf-8")
-        csv_reader = csv.DictReader(io.StringIO(file_as_string))
-        packages = [line["Package_Name"] for line in csv_reader]
-
-    return packages
+    return result
