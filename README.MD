@@ -1,4 +1,11 @@
-# Keith's Layers (Klayers)
+# KBS fork of Keith's Layers (Klayers)
+
+## Deploying to KBS AWS accounts:
+
+To deploy to a KBS AWS account execute this command with your target AWS_PROFILE:
+```
+AWS_PROFILE=<your profile> ./deploy_kbs_layers.sh
+```
 
 🐍 A collection of Python Packages as AWS Lambda(λ) Layers 🐍
 
